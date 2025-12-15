@@ -22,6 +22,12 @@ export default function Header() {
               Products
             </Link>
             <Link
+              href="/components"
+              className="text-gray-700 hover:text-primary transition-colors font-semibold"
+            >
+              Components
+            </Link>
+            <Link
               href="/cart"
               className="relative text-gray-700 hover:text-primary transition-colors font-semibold"
             >

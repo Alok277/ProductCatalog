@@ -1,0 +1,15 @@
+
+
+          .date-input {
+            appearance: none;
+            -webkit-appearance: none;
+          }
+          .date-input::-webkit-calendar-picker-indicator {
+            opacity: 0;
+            display: none;
+          }
+          .date-input::-webkit-inner-spin-button,
+          .date-input::-webkit-clear-button {
+            display: none;
+          }
+      
