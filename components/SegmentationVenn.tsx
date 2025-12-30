@@ -96,7 +96,10 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
     }
 
     // Wait for chart to render, then add styling and tooltips
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      // Check if component is still mounted and ref is still valid
+      if (!containerRef) return
+      
       // Add interactive tooltips and styling to circles
       svg
         .selectAll('g')
@@ -110,8 +113,8 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
           
           // Find the corresponding data for this path
           const element = this as Element
-          const parent = element.parentNode as Element | null
-          if (parent) {
+          const parent = element.parentNode
+          if (parent && parent instanceof Element) {
             const data = d3.select(parent).datum() as any
             if (data) {
               const setsLabel = Array.isArray(data.sets) ? data.sets.join(' ∩ ') : data.sets
@@ -141,6 +144,8 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
     }, 100)
     
     return () => {
+      // Clear timeout if component unmounts
+      clearTimeout(timeoutId)
       // Use captured ref value in cleanup
       if (containerRef) {
         d3.select(containerRef).selectAll('*').remove()
