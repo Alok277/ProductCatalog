@@ -107,17 +107,21 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
           d3.select(this).style('fill-opacity', 0.6)
           
           // Find the corresponding data for this path
-          const data = d3.select(this.parentNode).datum() as any
-          if (data) {
-            const setsLabel = Array.isArray(data.sets) ? data.sets.join(' ∩ ') : data.sets
-            const tooltipText = `${setsLabel}: ${data.size?.toLocaleString() || 'N/A'} users`
-            
-            const rect = ref.current?.getBoundingClientRect()
-            setTooltip({ 
-              x: (rect?.left || 0) + event.offsetX + 20, 
-              y: (rect?.top || 0) + event.offsetY + 20, 
-              text: tooltipText 
-            })
+          const element = this as Element
+          const parent = element.parentNode as Element | null
+          if (parent) {
+            const data = d3.select(parent).datum() as any
+            if (data) {
+              const setsLabel = Array.isArray(data.sets) ? data.sets.join(' ∩ ') : data.sets
+              const tooltipText = `${setsLabel}: ${data.size?.toLocaleString() || 'N/A'} users`
+              
+              const rect = ref.current?.getBoundingClientRect()
+              setTooltip({ 
+                x: (rect?.left || 0) + event.offsetX + 20, 
+                y: (rect?.top || 0) + event.offsetY + 20, 
+                text: tooltipText 
+              })
+            }
           }
         })
         .on('mouseout', function () {
