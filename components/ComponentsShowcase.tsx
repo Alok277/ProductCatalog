@@ -389,10 +389,9 @@ function FileUploadDemo({
   const [isDragging, setIsDragging] = useState(false)
   const [hasError, setHasError] = useState(false)
 
-  const acceptedTypes = ['.png', '.jpg', '.pdf']
-  const acceptedMimeTypes = ['image/png', 'image/jpeg', 'application/pdf']
-
   const validateFile = useCallback((file: File): boolean => {
+    const acceptedTypes = ['.png', '.jpg', '.pdf']
+    const acceptedMimeTypes = ['image/png', 'image/jpeg', 'application/pdf']
     const extension = '.' + file.name.split('.').pop()?.toLowerCase()
     return acceptedTypes.includes(extension) || acceptedMimeTypes.includes(file.type)
   }, [])

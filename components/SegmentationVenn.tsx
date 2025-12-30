@@ -20,10 +20,12 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null)
 
   useEffect(() => {
-    if (!ref.current || !data) return
+    // Capture ref.current at the start of effect for cleanup
+    const containerRef = ref.current
+    if (!containerRef || !data) return
 
     // Clear previous content
-    d3.select(ref.current).selectAll('*').remove()
+    d3.select(containerRef).selectAll('*').remove()
 
     // Map backend data to Venn sets
     // Focus on Group A (Event_1 and Event_2) as the main visualization
@@ -66,7 +68,7 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
       .padding(20)
 
     const svg = d3
-      .select(ref.current)
+      .select(containerRef)
       .append('svg')
       .attr('width', 800)
       .attr('height', 600)
@@ -115,7 +117,7 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
               const setsLabel = Array.isArray(data.sets) ? data.sets.join(' ∩ ') : data.sets
               const tooltipText = `${setsLabel}: ${data.size?.toLocaleString() || 'N/A'} users`
               
-              const rect = ref.current?.getBoundingClientRect()
+              const rect = containerRef?.getBoundingClientRect()
               setTooltip({ 
                 x: (rect?.left || 0) + event.offsetX + 20, 
                 y: (rect?.top || 0) + event.offsetY + 20, 
@@ -137,12 +139,11 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
         .style('fill', '#333')
         .style('pointer-events', 'none')
     }, 100)
-
+    
     return () => {
-      // Capture ref.current in cleanup to avoid stale closure warning
-      const container = ref.current
-      if (container) {
-        d3.select(container).selectAll('*').remove()
+      // Use captured ref value in cleanup
+      if (containerRef) {
+        d3.select(containerRef).selectAll('*').remove()
       }
     }
   }, [data])
