@@ -1,6 +1,6 @@
-import Header from '@/components/Header'
-import ProductList from '@/components/ProductList'
-import Link from 'next/link'
+import Header from "@/components/Header";
+import ProductList from "@/components/ProductList";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -19,6 +19,5 @@ export default function Home() {
         <ProductList />
       </main>
     </div>
-  )
+  );
 }
-

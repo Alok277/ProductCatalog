@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import { useAppSelector } from '@/store/hooks'
-import Link from 'next/link'
+import { useAppSelector } from "@/store/hooks";
+import Link from "next/link";
 
 export default function Header() {
-  const cartItems = useAppSelector((state) => state.cart.items)
-  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0)
+  const cartItems = useAppSelector((state) => state.cart.items);
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
     <header className="bg-white/80 backdrop-blur shadow-md sticky top-0 z-50 border-b border-gray-100">
@@ -28,6 +28,12 @@ export default function Header() {
               Components
             </Link>
             <Link
+              href="/venn-diagram"
+              className="text-gray-700 hover:text-primary transition-colors font-semibold"
+            >
+              Venn Diagram Implementation
+            </Link>
+            <Link
               href="/cart"
               className="relative text-gray-700 hover:text-primary transition-colors font-semibold"
             >
@@ -42,6 +48,5 @@ export default function Header() {
         </div>
       </div>
     </header>
-  )
+  );
 }
-
