@@ -139,7 +139,11 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
     }, 100)
 
     return () => {
-      d3.select(ref.current).selectAll('*').remove()
+      // Capture ref.current in cleanup to avoid stale closure warning
+      const container = ref.current
+      if (container) {
+        d3.select(container).selectAll('*').remove()
+      }
     }
   }, [data])
 

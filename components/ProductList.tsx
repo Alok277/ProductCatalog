@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { deleteProduct } from '@/store/slices/productsSlice'
 import { addToCart } from '@/store/slices/cartSlice'
@@ -81,13 +82,12 @@ export default function ProductList() {
               className="bg-white rounded-2xl shadow-soft border border-gray-100 flex flex-col overflow-hidden hover:-translate-y-1 transition-transform"
             >
               <div className="relative h-48 w-full overflow-hidden bg-gray-100">
-                <img
+                <Image
                   src={imageSrc}
                   alt={product.name}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = placeholderImage
-                  }}
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
                 <span className="absolute top-3 left-3 bg-secondary text-white text-xs font-semibold px-3 py-1 rounded-full">
                   {product.category}

@@ -392,10 +392,10 @@ function FileUploadDemo({
   const acceptedTypes = ['.png', '.jpg', '.pdf']
   const acceptedMimeTypes = ['image/png', 'image/jpeg', 'application/pdf']
 
-  const validateFile = (file: File): boolean => {
+  const validateFile = useCallback((file: File): boolean => {
     const extension = '.' + file.name.split('.').pop()?.toLowerCase()
     return acceptedTypes.includes(extension) || acceptedMimeTypes.includes(file.type)
-  }
+  }, [])
 
   const handleFiles = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -415,7 +415,7 @@ function FileUploadDemo({
     } else if (status === 'default') {
       setHasError(false)
     }
-  }, [status])
+  }, [status, validateFile])
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return

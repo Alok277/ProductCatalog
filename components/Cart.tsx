@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { removeFromCart, updateCartQuantity, clearCart } from '@/store/slices/cartSlice'
 import Link from 'next/link'
@@ -122,14 +123,13 @@ export default function Cart() {
               <tr key={item.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      <img
+                    <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
+                      <Image
                         src={item.imageUrl?.trim() || placeholderImage}
                         alt={item.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = placeholderImage
-                        }}
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                     </div>
                     <div>
