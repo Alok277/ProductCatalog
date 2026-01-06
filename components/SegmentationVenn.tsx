@@ -3,9 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 
-// Import venn.js - it's a CommonJS module
-const venn = require('venn.js')
-
 interface SegmentationData {
   [key: string]: number
 }
@@ -27,125 +24,230 @@ export default function SegmentationVenn({ data, queryStructure }: SegmentationV
     // Clear previous content
     d3.select(containerRef).selectAll('*').remove()
 
-    // Map backend data to Venn sets
-    // Focus on Group A (Event_1 and Event_2) as the main visualization
-    // venn.js works best with 2-3 sets at a time
-    const sets: any[] = []
-
-    // Group A: Event_1 and Event_2 with their intersection
-    // For venn.js, we need to provide individual sets and their intersection
-    const event1Size = data['Event_1'] || 0
-    const event2Size = data['Event_2'] || 0
-    const intersectionSize = data['Event_1_AND_Event_2'] || 0
-
-    // Calculate individual set sizes (excluding intersection)
-    const event1Only = event1Size - intersectionSize
-    const event2Only = event2Size - intersectionSize
-
-    // Build sets array - venn.js needs all areas including intersections
-    sets.push({ sets: ['Event_1'], size: event1Size })
-    sets.push({ sets: ['Event_2'], size: event2Size })
-    sets.push({ sets: ['Event_1', 'Event_2'], size: intersectionSize })
-
-    // Validate sets before passing to venn
-    if (sets.length === 0 || sets.some(s => !s.size && s.size !== 0)) {
-      console.warn('No valid sets to visualize', sets)
-      return
-    }
-
-    // Filter out sets with invalid sizes
-    const validSets = sets.filter(s => s.size >= 0 && s.sets && Array.isArray(s.sets))
+    // Extract data for nested circles with intersection
+    // Outer circle (Event_1) - larger set
+    // Inner circle (Event_2) - subset inside Event_1
+    // Intersecting circle (Event_3) - intersects with Event_2
+    const outerSize = data['Event_1'] || 0
+    const innerSize = data['Event_2'] || 0
+    const intersectSize = data['Event_3'] || 0
+    const intersectionSize = data['Event_2_AND_Event_3'] || 0 // Intersection of Event_2 and Event_3
     
-    if (validSets.length === 0) {
-      console.warn('No valid sets after filtering')
+    const outerOnly = outerSize - innerSize // Users in Event_1 but not in Event_2
+    const innerOnly = innerSize - intersectionSize // Users in Event_2 but not in Event_3
+    const intersectOnly = intersectSize - intersectionSize // Users in Event_3 but not in Event_2
+
+    // Validate data
+    if (outerSize === 0 && innerSize === 0 && intersectSize === 0) {
+      console.warn('No data to visualize')
       return
     }
 
-    // Create Venn diagram
-    const chart = venn.VennDiagram()
-      .width(800)
-      .height(600)
-      .padding(20)
+    // SVG dimensions
+    const width = 800
+    const height = 600
+    const centerX = width / 2
+    const centerY = height / 2
 
+    // Calculate radii based on sizes (proportional scaling)
+    // Use square root for area-based scaling
+    const maxSize = Math.max(outerSize, innerSize, intersectSize, 1)
+    const scaleFactor = Math.min(width, height) / 2 / Math.sqrt(maxSize) * 0.6
+
+    const outerRadius = Math.sqrt(outerSize) * scaleFactor
+    const innerRadius = Math.sqrt(innerSize) * scaleFactor
+    const intersectRadius = Math.sqrt(intersectSize) * scaleFactor
+
+    // Position Event_3 to intersect with Event_2
+    // Calculate distance between centers for intersection
+    // The distance should be less than the sum of radii for intersection
+    const maxDistance = innerRadius + intersectRadius
+    const minDistance = Math.abs(innerRadius - intersectRadius)
+    // Calculate distance based on intersection size (proportional)
+    const intersectionRatio = intersectionSize / Math.min(innerSize, intersectSize)
+    const d = maxDistance - (maxDistance - minDistance) * intersectionRatio * 0.7
+    const event3X = d * 0.7 // Offset to the right
+    const event3Y = 0 // Same vertical position
+
+    // Create SVG
     const svg = d3
       .select(containerRef)
       .append('svg')
-      .attr('width', 800)
-      .attr('height', 600)
+      .attr('width', width)
+      .attr('height', height)
 
-    try {
-      // VennDiagram calculates layout internally, just pass the sets array
-      // The sets array should include all individual sets and intersections
-      console.log('Passing sets to VennDiagram:', validSets)
-      svg.datum(validSets).call(chart)
-      
-      // Get the solution for debugging/display purposes
-      const solution = venn.venn(validSets, {})
-      console.log('Solution from venn.venn():', solution)
-    } catch (error) {
-      console.error('Error calculating venn diagram:', error)
-      // Fallback: show error message
-      svg.append('text')
-        .attr('x', 400)
-        .attr('y', 300)
-        .attr('text-anchor', 'middle')
-        .style('font-size', '16px')
-        .style('fill', 'red')
-        .text('Error rendering Venn diagram')
-      return
-    }
+    // Create a group for the circles
+    const g = svg.append('g').attr('transform', `translate(${centerX}, ${centerY})`)
 
-    // Wait for chart to render, then add styling and tooltips
-    const timeoutId = setTimeout(() => {
-      // Check if component is still mounted and ref is still valid
-      if (!containerRef) return
+    // Draw outer circle (Event_1) - draw first so it's behind everything
+    const outerCircle = g
+      .append('circle')
+      .attr('r', outerRadius)
+      .attr('cx', 0)
+      .attr('cy', 0)
+      .style('fill', '#3B82F6') // Blue
+      .style('fill-opacity', 0.25)
+      .style('stroke', '#1E40AF')
+      .style('stroke-width', 3)
+      .style('cursor', 'pointer')
+      .on('mouseover', function (event: MouseEvent) {
+        d3.select(this).style('fill-opacity', 0.4)
+        const rect = containerRef?.getBoundingClientRect()
+        setTooltip({
+          x: (rect?.left || 0) + event.offsetX + 20,
+          y: (rect?.top || 0) + event.offsetY + 20,
+          text: `Event_1: ${outerSize.toLocaleString()} users (outer circle)`
+        })
+      })
+      .on('mouseout', function () {
+        d3.select(this).style('fill-opacity', 0.25)
+        setTooltip(null)
+      })
+
+    // Draw Event_3 circle (intersecting with Event_2) - draw before Event_2 so intersection is visible
+    const event3Circle = g
+      .append('circle')
+      .attr('r', intersectRadius)
+      .attr('cx', event3X)
+      .attr('cy', event3Y)
+      .style('fill', '#F59E0B') // Amber/Orange
+      .style('fill-opacity', 0.4)
+      .style('stroke', '#D97706')
+      .style('stroke-width', 3)
+      .style('cursor', 'pointer')
+      .on('mouseover', function (event: MouseEvent) {
+        d3.select(this).style('fill-opacity', 0.6)
+        const rect = containerRef?.getBoundingClientRect()
+        setTooltip({
+          x: (rect?.left || 0) + event.offsetX + 20,
+          y: (rect?.top || 0) + event.offsetY + 20,
+          text: `Event_3: ${intersectSize.toLocaleString()} users (intersects with Event_2)`
+        })
+      })
+      .on('mouseout', function () {
+        d3.select(this).style('fill-opacity', 0.4)
+        setTooltip(null)
+      })
+
+    // Draw inner circle (Event_2) - nested inside Event_1, intersects with Event_3
+    const innerCircle = g
+      .append('circle')
+      .attr('r', innerRadius)
+      .attr('cx', 0)
+      .attr('cy', 0)
+      .style('fill', '#10B981') // Green
+      .style('fill-opacity', 0.5)
+      .style('stroke', '#059669')
+      .style('stroke-width', 3)
+      .style('cursor', 'pointer')
+      .on('mouseover', function (event: MouseEvent) {
+        d3.select(this).style('fill-opacity', 0.7)
+        const rect = containerRef?.getBoundingClientRect()
+        setTooltip({
+          x: (rect?.left || 0) + event.offsetX + 20,
+          y: (rect?.top || 0) + event.offsetY + 20,
+          text: `Event_2: ${innerSize.toLocaleString()} users (nested in Event_1, intersects with Event_3)`
+        })
+      })
+      .on('mouseout', function () {
+        d3.select(this).style('fill-opacity', 0.5)
+        setTooltip(null)
+      })
+
+    // Draw intersection area between Event_2 and Event_3
+    // Create a visual representation of the intersection area
+    if (intersectionSize > 0) {
+      // Calculate intersection circle size based on intersection data
+      const intersectionRadius = Math.sqrt(intersectionSize) * scaleFactor * 0.9
       
-      // Add interactive tooltips and styling to circles
-      svg
-        .selectAll('g')
-        .selectAll('path')
-        .style('fill-opacity', 0.3)
+      // Position intersection circle in the overlapping area
+      const intersectionX = event3X * 0.35
+      const intersectionY = 0
+      
+      // Create intersection circle (overlapping area)
+      const intersectionCircle = g
+        .append('circle')
+        .attr('r', intersectionRadius)
+        .attr('cx', intersectionX)
+        .attr('cy', intersectionY)
+        .style('fill', '#8B5CF6') // Purple for intersection
+        .style('fill-opacity', 0.7)
+        .style('stroke', '#6D28D9')
         .style('stroke-width', 2)
-        .style('stroke', '#333')
         .style('cursor', 'pointer')
-        .on('mouseover', function (event: MouseEvent, d: any) {
-          d3.select(this).style('fill-opacity', 0.6)
-          
-          // Find the corresponding data for this path
-          const element = this as Element
-          const parent = element.parentNode
-          if (parent && parent instanceof Element) {
-            const data = d3.select(parent).datum() as any
-            if (data) {
-              const setsLabel = Array.isArray(data.sets) ? data.sets.join(' ∩ ') : data.sets
-              const tooltipText = `${setsLabel}: ${data.size?.toLocaleString() || 'N/A'} users`
-              
-              const rect = containerRef?.getBoundingClientRect()
-              setTooltip({ 
-                x: (rect?.left || 0) + event.offsetX + 20, 
-                y: (rect?.top || 0) + event.offsetY + 20, 
-                text: tooltipText 
-              })
-            }
-          }
+        .on('mouseover', function (event: MouseEvent) {
+          d3.select(this).style('fill-opacity', 0.9)
+          const rect = containerRef?.getBoundingClientRect()
+          setTooltip({
+            x: (rect?.left || 0) + event.offsetX + 20,
+            y: (rect?.top || 0) + event.offsetY + 20,
+            text: `Event_2 ∩ Event_3: ${intersectionSize.toLocaleString()} users (intersection)`
+          })
         })
         .on('mouseout', function () {
-          d3.select(this).style('fill-opacity', 0.3)
+          d3.select(this).style('fill-opacity', 0.7)
           setTooltip(null)
         })
+    }
 
-      // Style labels
-      svg
-        .selectAll('text')
+    // Add labels
+    // Outer circle label (positioned outside the circle)
+    g.append('text')
+      .attr('x', 0)
+      .attr('y', -outerRadius - 25)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '18px')
+      .style('font-weight', 'bold')
+      .style('fill', '#1E40AF')
+      .text(`Event_1: ${outerSize.toLocaleString()}`)
+
+    // Inner circle label (positioned at center-left)
+    g.append('text')
+      .attr('x', -innerRadius * 0.3)
+      .attr('y', 0)
+      .attr('text-anchor', 'middle')
+      .attr('dy', '0.35em')
+      .style('font-size', '16px')
+      .style('font-weight', 'bold')
+      .style('fill', '#059669')
+      .text(`Event_2: ${innerSize.toLocaleString()}`)
+
+    // Event_3 label (positioned outside the circle)
+    g.append('text')
+      .attr('x', event3X)
+      .attr('y', -intersectRadius - 20)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px')
+      .style('font-weight', 'bold')
+      .style('fill', '#D97706')
+      .text(`Event_3: ${intersectSize.toLocaleString()}`)
+
+    // Intersection label (positioned in the intersection area)
+    if (intersectionSize > 0) {
+      g.append('text')
+        .attr('x', event3X * 0.3)
+        .attr('y', 0)
+        .attr('text-anchor', 'middle')
+        .attr('dy', '0.35em')
         .style('font-size', '14px')
         .style('font-weight', 'bold')
-        .style('fill', '#333')
-        .style('pointer-events', 'none')
-    }, 100)
+        .style('fill', '#6D28D9')
+        .text(`∩: ${intersectionSize.toLocaleString()}`)
+    }
+
+    // Add annotation for outer-only area
+    if (outerOnly > 0) {
+      g.append('text')
+        .attr('x', outerRadius * 0.6)
+        .attr('y', -outerRadius * 0.3)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '12px')
+        .style('fill', '#6B7280')
+        .style('font-style', 'italic')
+        .text(`Only Event_1: ${outerOnly.toLocaleString()}`)
+    }
     
     return () => {
-      // Clear timeout if component unmounts
-      clearTimeout(timeoutId)
       // Use captured ref value in cleanup
       if (containerRef) {
         d3.select(containerRef).selectAll('*').remove()

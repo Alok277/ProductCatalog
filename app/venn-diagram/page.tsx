@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Header from '@/components/Header'
 import SegmentationVenn from '@/components/SegmentationVenn'
+import SegmentationVennLibrary from '@/components/SegmentationVennLibrary'
 
 // Step 1: DSL Query Example
 const dslQuery = `(
-  /* GROUP A: Core Required Events (MUST occur) */
+  /* GROUP A: Nested Events (Event_2 is a subset of Event_1) */
   (
     did Event_1
     WHERE Property_1_1 = "Value"
@@ -18,10 +19,12 @@ const dslQuery = `(
   )
   AND
   (
+    /* Event_2 is nested inside Event_1 (subset relationship) */
     did Event_2
     WHERE Property_2_1 LIKE "%keyword%"
     AND Property_2_2 = "Value"
     AND Property_2_3 IS NOT NULL
+    AND Event_1 = true  /* Event_2 requires Event_1 to have occurred */
     FROM 18 Dec 2025 TO 24 Dec 2025
   )
 )
@@ -88,11 +91,13 @@ const jsonRepresentation = {
   groups: [
     {
       name: "Group A",
-      operator: "AND",
-      description: "Core Required Events (MUST occur)",
+      operator: "NESTED", // Changed from "AND" to "NESTED" to indicate subset relationship
+      description: "Nested Events (Event_2 is a subset of Event_1)",
+      relationship: "subset", // Indicates Event_2 is inside Event_1
       events: [
         {
           name: "Event_1",
+          role: "outer", // Outer circle - larger set
           conditions: {
             Property_1_1: { operator: "=", value: "Value" },
             Property_1_2: { operator: "=", value: "Value" },
@@ -104,6 +109,8 @@ const jsonRepresentation = {
         },
         {
           name: "Event_2",
+          role: "inner", // Inner circle - subset
+          requires: ["Event_1"], // Event_2 requires Event_1 to have occurred
           conditions: {
             Property_2_1: { operator: "LIKE", value: "%keyword%" },
             Property_2_2: { operator: "=", value: "Value" },
@@ -251,8 +258,23 @@ function countSegmentation(query, allUsers) {
       });
     }
     
-    // Count intersections for AND groups
-    if (group.operator === "AND" && group.events.length === 2) {
+    // Count nested relationships for NESTED groups
+    if (group.operator === "NESTED" && group.events.length === 2) {
+      // For nested sets, inner event (Event_2) is a subset of outer event (Event_1)
+      // Count users in outer circle (Event_1)
+      counts[group.events[0].name] = allUsers.filter(user => 
+        evaluateEvent(group.events[0], user.events)
+      ).length;
+      
+      // Count users in inner circle (Event_2) - must also satisfy Event_1
+      counts[group.events[1].name] = allUsers.filter(user => 
+        evaluateEvent(group.events[0], user.events) &&
+        evaluateEvent(group.events[1], user.events)
+      ).length;
+    }
+    
+    // Count intersections for AND groups (non-nested)
+    if (group.operator === "AND" && group.events.length === 2 && group.relationship !== "subset") {
       const key = \`\${group.events[0].name}_AND_\${group.events[1].name}\`;
       counts[key] = allUsers.filter(user => 
         evaluateEvent(group.events[0], user.events) &&
@@ -283,11 +305,16 @@ function countSegmentation(query, allUsers) {
 `
 
 // Backend response data (result of evaluation)
+// For nested circles with intersection:
+// Event_1 (outer): 1200 users total
+// Event_2 (inner): 900 users (nested inside Event_1)
+// Event_3: 700 users (intersects with Event_2)
+// Event_2_AND_Event_3: 400 users (intersection of Event_2 and Event_3)
 const backendResponse = {
-  Event_1: 1200,
-  Event_2: 900,
-  Event_1_AND_Event_2: 700,
-  Event_3: 500,
+  Event_1: 1200,  // Outer circle - larger set
+  Event_2: 900,   // Inner circle - subset of Event_1 (nested inside)
+  Event_3: 700,   // Intersecting circle - intersects with Event_2
+  Event_2_AND_Event_3: 400, // Intersection of Event_2 and Event_3
   Event_4: 400,
   Event_5: 300,
   Event_6_AND_Event_7: 200,
@@ -373,7 +400,9 @@ export default function VennDiagramPage() {
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">Query Structure Breakdown:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-                <li><strong>Group A (AND):</strong> Both Event_1 AND Event_2 must occur</li>
+                <li><strong>Group A (NESTED):</strong> Event_2 is a subset of Event_1 (nested relationship)</li>
+                <li><strong>Event_1 (Outer):</strong> Larger set containing all Event_1 users</li>
+                <li><strong>Event_2 (Inner):</strong> Subset of Event_1 users (nested inside)</li>
                 <li><strong>Group B (OR):</strong> Any one of Event_3, Event_4, or Event_5 must occur</li>
                 <li><strong>Group C (OR):</strong> Any one of the sub-conditions must match</li>
                 <li><strong>Final Query:</strong> Group A AND Group B AND Group C</li>
@@ -400,9 +429,12 @@ export default function VennDiagramPage() {
             <div className="mt-4 p-4 bg-green-50 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">JSON Structure:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-                <li><strong>operator:</strong> Logical operator (AND/OR) for combining groups</li>
+                <li><strong>operator:</strong> Logical operator (AND/OR/NESTED) for combining groups</li>
+                <li><strong>relationship:</strong> &quot;subset&quot; indicates nested relationship (one inside another)</li>
                 <li><strong>groups:</strong> Array of query groups with their operators and events</li>
                 <li><strong>events:</strong> Individual events with conditions and date ranges</li>
+                <li><strong>role:</strong> &quot;outer&quot; or &quot;inner&quot; to indicate circle position in nested visualization</li>
+                <li><strong>requires:</strong> Array of event names that must occur before this event (for nested sets)</li>
                 <li><strong>conditions:</strong> Property-based filters (equals, greater than, IN, LIKE, etc.)</li>
               </ul>
             </div>
@@ -431,7 +463,7 @@ export default function VennDiagramPage() {
                 <li>Parse the JSON query structure</li>
                 <li>For each user, evaluate all events against their event history</li>
                 <li>Apply logical operators (AND/OR) to combine results</li>
-                <li>Count users matching each event and intersection</li>
+                <li>Count users matching each event and nested relationships</li>
                 <li>Return counts for visualization</li>
               </ol>
             </div>
@@ -458,13 +490,51 @@ export default function VennDiagramPage() {
               <h2 className="text-xl font-bold text-gray-900">Venn Diagram Visualization</h2>
             </div>
             <p className="text-gray-600 mb-4">
-              The backend response is visualized as a Venn diagram showing event intersections and user counts.
+              The backend response is visualized as nested circles with intersections. 
+              Event_2 is nested inside Event_1 (subset relationship), and Event_3 intersects with Event_2, 
+              creating a complex visualization showing multiple relationships.
             </p>
             
             <div className="bg-gray-50 rounded-lg p-6 mb-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Example: Group A (Event_1 ∩ Event_2)</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">Example: Group A (Event_2 nested inside Event_1, intersecting with Event_3)</h3>
               <div className="flex justify-center items-center min-h-[400px]">
                 <SegmentationVenn data={backendResponse} />
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-6 mb-4 mt-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Complex Multi-Set Example (Using venn.js Library)</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                For complex data with many sets and intersections, use the library-based component that automatically handles layout.
+                Note: venn.js works best with explicit intersection data. For nested relationships, use the custom component above.
+              </p>
+              
+              {/* Example data that works well with venn.js */}
+              <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+                <p className="text-xs text-blue-800 mb-2">
+                  <strong>Example:</strong> Standard intersection data (works with venn.js):
+                </p>
+                <div className="flex justify-center items-center min-h-[400px]">
+                  <SegmentationVennLibrary data={{
+                    Event_1: 1200,
+                    Event_2: 900,
+                    Event_3: 700,
+                    Event_1_AND_Event_2: 600,
+                    Event_2_AND_Event_3: 400,
+                    Event_1_AND_Event_3: 500,
+                    Event_1_AND_Event_2_AND_Event_3: 300
+                  }} />
+                </div>
+              </div>
+              
+              {/* Original data (may have issues with nested relationships) */}
+              <div className="mt-4 p-3 bg-yellow-50 rounded border border-yellow-200">
+                <p className="text-xs text-yellow-800 mb-2">
+                  <strong>Note:</strong> The original data has nested relationships which venn.js may not handle perfectly:
+                </p>
+                <div className="flex justify-center items-center min-h-[400px]">
+                  <SegmentationVennLibrary data={backendResponse} />
+                </div>
               </div>
             </div>
 
@@ -473,15 +543,29 @@ export default function VennDiagramPage() {
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                  <span><strong>Event_1:</strong> {backendResponse.Event_1.toLocaleString()} users</span>
+                  <span><strong>Event_1 (Outer Circle):</strong> {backendResponse.Event_1.toLocaleString()} users</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                  <span><strong>Event_2:</strong> {backendResponse.Event_2.toLocaleString()} users</span>
+                  <span><strong>Event_2 (Inner Circle):</strong> {backendResponse.Event_2.toLocaleString()} users (nested inside Event_1)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-amber-500 rounded-full"></div>
+                  <span><strong>Event_3 (Intersecting Circle):</strong> {backendResponse.Event_3.toLocaleString()} users (intersects with Event_2)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
-                  <span><strong>Event_1 ∩ Event_2:</strong> {backendResponse.Event_1_AND_Event_2.toLocaleString()} users (intersection)</span>
+                  <span><strong>Event_2 ∩ Event_3:</strong> {backendResponse.Event_2_AND_Event_3.toLocaleString()} users (intersection area)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
+                  <span><strong>Only Event_1:</strong> {(backendResponse.Event_1 - backendResponse.Event_2).toLocaleString()} users (in outer circle but not inner)</span>
+                </div>
+                <div className="mt-3 p-3 bg-white rounded border border-gray-200">
+                  <p className="text-xs text-gray-600">
+                    <strong>Note:</strong> Event_2 is nested inside Event_1 (subset relationship), and Event_3 intersects with Event_2. 
+                    The purple area shows the intersection of Event_2 and Event_3.
+                  </p>
                 </div>
               </div>
             </div>

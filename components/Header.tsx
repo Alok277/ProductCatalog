@@ -34,6 +34,12 @@ export default function Header() {
               Venn Diagram Implementation
             </Link>
             <Link
+              href="/venn-diagram-two"
+              className="text-gray-700 hover:text-primary transition-colors font-semibold"
+            >
+              Venn Diagram Two
+            </Link>
+            <Link
               href="/cart"
               className="relative text-gray-700 hover:text-primary transition-colors font-semibold"
             >
